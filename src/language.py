@@ -21,7 +21,7 @@ def main():
     elif len(sys.argv)==1:
         while True:
             try:
-                returning = input(">>>")
+                returning = input(">>> ")
                 print(returning)
                 print("Error: Scanner not implimented.")
             except KeyboardInterrupt:
