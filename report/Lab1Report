@@ -1,0 +1,133 @@
+Program Name: Language
+Number: \d*\.?\d+
+String: ^"[\s\S]*"$
+Identifier: ^[a-zA-Z_][a-zA-Z0-9_]*$
+
+Language is very similar to Lox in that it uses double quotations to mark strings,
+numbers are handled the same way, and identifiers must start with a letter but can contain
+numbers. It however does not require any special character to denote the end of a line
+and strings can contain all white space types. It is also set up with common identifier tokens
+such as: and, if, print, return, while, etc. While they do not do anything currently, the 
+tokens are created.
+
+
+There is no special set up for the scanner other than having access to the main python program
+containing Language and a .language file. Entering it into the command line.
+
+Test cases:
+    File reading and scanning:
+    Lab1test1.language was created to test scanning a file and test identifiers, strings, numbers,
+    and keyword tokens as well as testing error handling for unexpected characters and error line
+    identification of the special characters.
+
+    expected output: tokens in order of the file at the top with unexpected character errors at the
+    bottom similar to the file.
+
+    Actual output:
+    Error: Unexpected character: '$' at line [12]
+    Error: Unexpected character: '%' at line [14]
+    Error: Unexpected character: '^' at line [14]
+    Error: Unexpected character: '`' at line [15]
+    Error: Unexpected character: '~' at line [15]
+    PRINT print None
+    STRING "hello world" hello world
+    BANG ! None
+    ASTRIX * None
+    LEFT_PAREN ( None
+    RIGHT_PAREN ) None
+    MINUS - None
+    EQUAL = None
+    RIGHT_BRACE } None
+    LEFT_BRACE { None
+    IDENTIFIER s1r32 None
+    AND and None
+    STRING "2342gfdd
+
+    e
+    " 2342gfdd
+
+    e
+
+    EOF  None
+
+    It did not match expectations since the error messages were at the top while the tokens
+    were printed under them but the information displayed was what was expected.
+
+    Unclosed strings:
+    Lab1test2.language was created to test unclosed strings and some other keyword tokens.
+
+    expected output: return token printed, unclosed string error on line 1 with true and if
+    tokens printed under.
+
+    Actual output:
+    Error: String not closed at line [6]
+    RETURN return None
+    EOF  None
+
+    It was unexpected that the string would show the error at the furthest line even though
+    lines 5 and 6 were extra enters after line 4 which had if. Even though it was named 
+    Lab1test2, the file was tested first and this was how I found out that strings could
+    contain multiple lines.
+
+    interactive mode test:
+    This was testing to see how the scanner worked in the interactive mode. It was done
+    with the inputs [find print "funny"], [exit()], [1234], [12+34], [> >= < <= = ==],
+    ["test], and ['test'] in one iteration of interactive mode.
+
+    expected output: All the proper tokens would print with "test having an unclosed string
+    error and 'test' having unexpected character errors without shutting down the interactive
+    mode.
+
+
+    actual output:
+    >>> find print "funny"
+    find print "funny"
+    IDENTIFIER find None
+    PRINT print None
+    STRING "funny" funny
+    EOF  None
+    >>> exit()
+    exit()
+    IDENTIFIER exit None
+    LEFT_PAREN ( None
+    RIGHT_PAREN ) None
+    EOF  None
+    >>> 1234
+    1234
+    NUMBER 1234 1234.0
+    EOF  None
+    >>> 12+34
+    12+34
+    NUMBER 12 12.0
+    PLUS + None
+    NUMBER 34 34.0
+    EOF  None
+    >>> > >= < <= = ==
+    > >= < <= = ==
+    GREATER > None
+    GREATER_EQUAL >= None
+    LESS < None
+    LESS_EQUAL <= None
+    EQUAL = None
+    EQUAL_EQUAL == None
+    EOF  None
+    >>> "test
+    "test
+    Error: String not closed at line [1]
+    EOF  None
+    >>> 'test'
+    'test'
+    Error: Unexpected character: ''' at line [1]
+    Error: Unexpected character: ''' at line [1]
+    IDENTIFIER test None
+    EOF  None
+
+    The test actually ran completely as expected and gave all proper tokens.
+
+Known limitations:
+Since strings can contain any type of white space, if there is an unclosed string
+at line 7, but down on line 14 there exists another string that is propperly closed on
+the same line, it will show there is an error on line 14 and it would treat what was supposed
+to be the string as identifiers. This would make debugging difficult because the error could not
+be easily found.
+
