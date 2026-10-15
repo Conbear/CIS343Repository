@@ -51,6 +51,14 @@ class TokenType(Enum):
 
     EOF = auto()
 
+
+
+
+
+
+    
+
+
 class Token:
     def __init__(self, type: TokenType, lexeme: str, literal: object, line:int):
         self.type = type
@@ -187,16 +195,115 @@ class Scanner:
         text = self.source[self.start:self.current]
         token_type = self.KEYWORDS.get(text, TokenType.IDENTIFIER)
         self.add_token(token_type)
+
+
+# syntax is expression is a binary, grouping, literal, or unary
+# binary is expression, operator, expression
+# unary is operator, expression
+# literal is value
+
+# grammar: function (parameters) strings contained in " "
+# math number operator number
+
+# values are number,string,true/false,nil
+# groupings are ()
+# operators are +,-,*,/
+
+
+class Expr:
+
+    def accept(self, visitor):
+        pass
+
+class Binary(Expr):
+    
+    def __init__(self, left: Expr, operator: Token, right: Expr):
+        self.left = left
+        self.operator = operator
+        self.right = right
+
+    def accept(self, visitor):
+        return visitor.visit_binary_expr(self)
+
+class Unary(Expr):
+
+    def __init__(self, operator: Token, expression: Expr):
+        self.operator = operator
+        self.expression = expression
+
+    def accept(self, visitor):
+        return visitor.visit_unary_expr(self)
+
+class Grouping(Expr):
+    
+    def __init__(self, expression: Expr):
+        self.expression = expression
+
+    def accept(self, visitor):
+        return visitor.visit_grouping_expr(self)
+
+class Literal(Expr):
+    
+    def __init__(self, value):
+        self.value = value
+
+    def accept(self, visitor):
+        return visitor.visit_literal_expr(self)
+
+
         
+class AstPrinter:
+    
+    def print(self, expr: Expr) -> str:
+        return expr.accept(self)
+
+    def visit_binary_expr(self, expr: Binary) -> str:
+        # Hard-coded logic for formatting binary expressions
+        return f"({expr.operator.lexeme} {expr.left.accept(self)} {expr.right.accept(self)})"
+
+    def visit_unary_expr(self, expr:Unary) -> str:
+        return f"({expr.operator.lexeme} {expr.expression.accept(self)})"
+
+    def visit_grouping_expr(self, expr: Grouping) -> str:
+        # Hard-coded logic for formatting grouped expressions
+        return f"(group {expr.expression.accept(self)})"
+
+    def visit_literal_expr(self, expr: Literal) -> str:
+        # Hard-coded logic for handling base/leaf values
+        if expr.value is None:
+            return "nil"
+        return str(expr.value)
+
+
  
 class Interpreter:
     def __init__(self):
         self.had_error = False
+        self.printer = AstPrinter()
+        # Scope context defining what variables/classes eval() can access
+        self.environment = {
+            "TokenType": TokenType,
+            "Token": Token,
+            "Unary": Unary,
+            "Binary": Binary,
+            "Grouping": Grouping,
+            "Literal": Literal
+        }
+
+
+
 
     def run_file(self, path: str):
         try:
             with open(path, "r", encoding="utf-8") as file:
-                self.run(file.read())
+                #self.run(file.read())
+                for line_num, line in enumerate(file, start=1):
+                    cleaned_line = line.strip()
+                    
+                    # Skip empty lines or comment lines
+                    if not cleaned_line:
+                        continue
+                    self.run(cleaned_line)
             if self.had_error:
                 sys.exit(1)
         except FileNotFoundError:
@@ -206,22 +313,30 @@ class Interpreter:
     def run_prompt(self):
         while True:
             try:
-                returning = input(">>> ")
-                print(returning)
+                returning = input(">>> ").strip()
+                
                 self.run(returning)
                 self.had_error = False
             except (KeyboardInterrupt, EOFError):
                 break
 
     def run(self, source: str):
-        scanner = Scanner(source)
-        tokens, error_occurred = scanner.scan_tokens()
+        #scanner = Scanner(source)
+        #tokens, error_occurred = scanner.scan_tokens()
 
-        if error_occurred:
-            self.had_error = True
+        #if error_occurred:
+        #    self.had_error = True
 
-        for token in tokens:
-            print(token)
+        #for token in tokens:
+        #    print(token)
+        node_graph = eval(source, {"__builtins__": None}, self.environment)
+
+        if isinstance(node_graph, Expr):
+            result_string = self.printer.print(node_graph)
+            print(f"Structure: {result_string}")
+        else:
+            print("Error: Evaluated object is not a structural subclass of Expr.")
+
 
 
     

@@ -1,0 +1,5 @@
+Grouping(Binary(Literal(1), Token(TokenType.PLUS, "+", None, 1), Literal(2)))
+
+Binary(Unary(Token(TokenType.MINUS, "-", None, 3),Literal(123)), Token(TokenType.ASTRIX,"*", None, 3), Grouping(Literal(45.67)))
+
+Unary(Token(TokenType.MINUS, "-", None, 5),Grouping(Binary(Literal(12),Token(TokenType.SLASH,"/", None, 5), Literal(34))))

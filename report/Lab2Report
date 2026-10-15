@@ -1,0 +1,61 @@
+The expression grammar will be very similar to Lox.
+How it works is that an expression can be a binary, a unary, a grouping, or a literal.
+A binary will have the format of expression, operator, expression.
+A unary will have the format of operator, expression.
+A grouping will have the format of expression inside parenthasis.
+A literal will be a value, number, string, boolean, or NULL.
+
+There is no special set up for the ast printer other than having access to the main python program
+containing Language and a .language file containing hard coded asts.
+Entering an ast after accessing the main python program with the command line also works.
+
+All test cases were tested with the file and typed with REPL and all worked and are written in Lab2test1.
+
+test 1:
+This was testing having it start with a Grouping and testing the Binary with literals and
+the PLUS token.
+Hard Coded ast:
+    Grouping(Binary(Literal(1), Token(TokenType.PLUS, "+", None, 1), Literal(2)))
+expected output: Structure: (group (+ 1 2))
+actual output: Structure: (group (+ 1 2))
+This matched the expected result.
+
+test 2:
+This was testing having it start with Binary with nested Unary and Grouping as well 
+as the ASTRIX and MINUS tokens.
+Hard Coded ast:
+    Binary(Unary(Token(TokenType.MINUS, "-", None, 1),Literal(123)), Token(TokenType.ASTRIX,"*", None, 1), Grouping(Literal(45.67)))
+expected output: Structure: (* (- 123) (group 45.67))
+actual output: Structure: (* (- 123) (group 45.67))
+This matched the expected result.
+
+test 3:
+This was testing having it start with Unary having a nested Grouping with a nested Binary
+as well as the SLASH token.
+Hard Coded ast:
+    Unary(Token(TokenType.MINUS, "-", None, 1),Grouping(Binary(Literal(12),Token(TokenType.SLASH,"/", None, 1), Literal(34))))
+expected output: Structure: (- (group (/ 12 34)))
+actual output: Structure: (- (group (/ 12 34)))
+This matched the expected result.
+
+test 4:
+This was testing running the file with multiple ast and having it print each one seperate.
+Hard Coded ast:
+    Grouping(Binary(Literal(1), Token(TokenType.PLUS, "+", None, 1), Literal(2)))
+
+    Binary(Unary(Token(TokenType.MINUS, "-", None, 3),Literal(123)), Token(TokenType.ASTRIX,"*", None, 3), Grouping(Literal(45.67)))
+
+    Unary(Token(TokenType.MINUS, "-", None, 5),Grouping(Binary(Literal(12),Token(TokenType.SLASH,"/", None, 5), Literal(34))))
+expected result:
+    Structure: (group (+ 1 2))
+    Structure: (* (- 123) (group 45.67))
+    Structure: (- (group (/ 12 34)))
+actual result:
+    Structure: (group (+ 1 2))
+    Structure: (* (- 123) (group 45.67))
+    Structure: (- (group (/ 12 34)))
+This matched the expected result.
+
+Limitations:
+The limitations are that the hard coded ast in the file being read must be done in a single
+line. This can make it harder to be sure the ast is written properly.
