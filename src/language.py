@@ -75,7 +75,8 @@ class Scanner:
         "false": TokenType.FALSE, "for": TokenType.FOR, "fun": TokenType.FUN,
         "print": TokenType.PRINT, "return": TokenType.RETURN, "super": TokenType.SUPER,
         "this": TokenType.THIS, "true": TokenType.TRUE, "var": TokenType.VAR,
-        "while": TokenType.WHILE
+        "while": TokenType.WHILE, "if": TokenType.IF, "nil": TokenType.NIL, 
+        "or": TokenType.OR
     }
 
     def __init__(self, source: str):
@@ -214,6 +215,7 @@ class Scanner:
 # operators are +,-,*,/
 
 
+
 class Expr:
 
     def accept(self, visitor):
@@ -254,36 +256,54 @@ class Literal(Expr):
     def accept(self, visitor):
         return visitor.visit_literal_expr(self)
 
+
+class PrintNode(Expr):
+    def __init__(self, expression: Expr):
+        self.expression = expression
+
+    def accept(self, visitor):
+        return visitor.visit_print_expr(self)
+
 class Parser:
     def __init__(self, tokens: list[Token]):
         self.tokens = tokens
         self.current = 0
-        self.line = 1
+        #self.line = 1
         self.had_error=False
-        self.had_left = False
+        self.total = 0
 
 
-    def report_error(self, message: str):
+
+    def report_error(self, token: Token, message: str):
             self.had_error = True
-            print(f"Error: {message} on line [{self.line}] while parsing", file=sys.stderr)
+            print(f"Error: {message} on line [{token.line}] while parsing", file=sys.stderr)
 
     def parse(self)->Expr:
         expr=None
         if self.match(TokenType.PLUS, TokenType.ASTRIX, TokenType.SLASH):
-            self.report_error(f"missing left operand before {self.previous().lexeme} at token {self.current}")
+            self.report_error(self.previous(),f"missing left operand before {self.previous().lexeme} at token {self.current}")
             return expr, self.had_error
+        if self.match(TokenType.PRINT):
+                self.consume(TokenType.LEFT_PAREN, "Syntax error: Expect '(' after 'print'.")
+                expr = self.expression()
+                self.consume(TokenType.RIGHT_PAREN, "Syntax error: Expect ')' after print expression.")
+                self.consume(TokenType.SEMICOLON, "Syntax error: Expect ';' at the end of the statement")
+                return PrintNode(expr), self.had_error
+        
         expr=self.expression()
+        self.consume(TokenType.SEMICOLON, "Syntax error: Expect ';' at the end of the statement")
         if self.had_error:
             return expr, self.had_error
         if not self.is_at_end() and self.peek().type == TokenType.RIGHT_PAREN:
-            self.report_error(f"Unmatched right parenthesis at token {self.current}")
+            self.report_error(self.previous(),f"Unmatched right parenthesis at token {self.current}")
             return expr, self.had_error
+        
         
         return expr, self.had_error
 
     def expression(self) -> Expr:
         if self.match(TokenType.PLUS, TokenType.ASTRIX, TokenType.SLASH):
-                self.report_error(f"missing left operand before {self.previous().lexeme} at token {self.current}")
+                self.report_error(self.previous(),f"missing left operand before {self.previous().lexeme} at token {self.current}")
                 return
         return self.equality()
 
@@ -292,9 +312,11 @@ class Parser:
         while self.match(TokenType.EQUAL_EQUAL, TokenType.BANG_EQUAL):
             operator = self.previous()
             if self.is_at_end() or self.peek().type in (TokenType.RIGHT_PAREN, TokenType.EOF):
-                self.report_error(f"missing right operand after {operator.lexeme} at token {self.current}")
+                self.report_error(self.previous(),f"missing right operand after {operator.lexeme} at token {self.current}")
                 return
             right = self.comparison()
+            
+
             expr = Binary(expr, operator, right)
         return expr
 
@@ -304,7 +326,7 @@ class Parser:
         while self.match(TokenType.GREATER, TokenType.GREATER_EQUAL, TokenType.LESS, TokenType.LESS_EQUAL):
             operator = self.previous()
             if self.is_at_end() or self.peek().type in (TokenType.RIGHT_PAREN, TokenType.EOF):
-                self.report_error(f"missing right operand after {operator.lexeme} at token {self.current}")
+                self.report_error(self.previous(),f"missing right operand after {operator.lexeme} at token {self.current}")
                 return
             right = self.term()
             expr = Binary(expr, operator, right)
@@ -315,7 +337,7 @@ class Parser:
         while self.match(TokenType.PLUS, TokenType.MINUS):
             operator = self.previous()
             if self.is_at_end() or self.peek().type in (TokenType.RIGHT_PAREN, TokenType.EOF):
-                self.report_error(f"missing right operand after {operator.lexeme} at token {self.current}")
+                self.report_error(self.previous(),f"missing right operand after {operator.lexeme} at token {self.current}")
                 return
             right = self.factor()
             expr = Binary(expr, operator, right)
@@ -326,17 +348,18 @@ class Parser:
         while self.match(TokenType.ASTRIX, TokenType.SLASH):
             operator = self.previous()
             if self.is_at_end() or self.peek().type in (TokenType.RIGHT_PAREN, TokenType.EOF):
-                self.report_error(f"missing right operand after {operator.lexeme} at token {self.current}")
+                self.report_error(self.previous(),f"missing right operand after {operator.lexeme} at token {self.current}")
                 return
             right = self.unary()
             expr = Binary(expr, operator, right)
+            
         return expr
 
     def unary(self) -> Expr:
         if self.match(TokenType.MINUS, TokenType.BANG):
             operator = self.previous()
             if self.is_at_end() or self.peek().type in (TokenType.RIGHT_PAREN, TokenType.EOF):
-                self.report_error(f"missing operand after unary {operator.lexeme} at token {self.current}")
+                self.report_error(self.previous(),f"missing operand after unary {operator.lexeme} at token {self.current}")
                 return
             right = self.unary()
             return Unary(operator, right)
@@ -344,7 +367,7 @@ class Parser:
 
     def primary(self) -> Expr:
         if self.match(TokenType.NUMBER):
-            return Literal(self.previous().lexeme)
+            return Literal(self.previous().literal)
         if self.match(TokenType.IDENTIFIER):
             return Literal(self.previous().lexeme)
         if self.match(TokenType.TRUE):
@@ -352,11 +375,13 @@ class Parser:
         if self.match(TokenType.FALSE):
             return Literal(self.previous().lexeme)
         if self.match(TokenType.STRING):
-            self.report_error(f"Unexpected string {self.previous().lexeme} at token {self.current}")
-            return
+            return Literal(self.previous().literal)
+        if self.match(TokenType.NIL):
+            return Literal("Nil")
+        
         if self.match(TokenType.LEFT_PAREN):
             if self.peek().type == TokenType.RIGHT_PAREN:
-                self.report_error(f"empty parenthesis with missing expression at token {self.current}")
+                self.report_error(self.previous(),f"empty parenthesis with missing expression at token {self.current}")
                 return
             expr = self.expression()
             if expr == None:
@@ -365,17 +390,17 @@ class Parser:
                 return Grouping(expr)
             
             else:
-                self.report_error("Unclosed parenthesis")
+                self.report_error(self.previous(),"Unclosed parenthesis")
                 return
         if self.peek().type == TokenType.RIGHT_PAREN:
-            self.report_error("Unmatched closing parenthesis ) at token 0")
+            self.report_error(self.previous(),"Unmatched closing parenthesis ) at token 0")
             return
         if self.peek().type in (TokenType.PLUS, TokenType.MINUS, TokenType.ASTRIX, TokenType.SLASH):
-            self.report_error(f"Unexpected operator {self.peek().lexeme} at token {self.current} where operand was expected")
+            self.report_error(self.previous(),f"Unexpected operator {self.peek().lexeme} at token {self.current} where operand was expected")
             return
         
         else:
-            self.report_error(f"Unexpected character {self.peek().lexeme}")
+            self.report_error(self.previous(),f"Unexpected character {self.peek().lexeme}")
             return
         
 
@@ -407,9 +432,108 @@ class Parser:
 
     def consume(self, type_, message: str) -> Token:
         if self.check(type_): return self.advance()
-        raise SyntaxError(message)
+        self.report_error(self.previous(),message)
 
+class Evaluator:
+    def evaluate(self, expr: Expr):
+        try:
+            return self._evaluate(expr)
+        except (TypeError, ZeroDivisionError) as e:
+            print(f"Runtime Error: {e}")
+            return None
+
+    def _evaluate(self, expr: Expr):
+        if expr is None:
+            return None
+
+        # Hard-coded routing based on node type
+        if isinstance(expr, Literal):
+            return expr.value
+
+        elif isinstance(expr, Grouping):
+            return self._evaluate(expr.expression)
+
+        elif isinstance(expr, Unary):
+            right = self._evaluate(expr.right)
+            op_type = expr.operator.type
+
+            if op_type == TokenType.MINUS:
+                if isinstance(right, str):
+                    raise TypeError(f"Unsupported operand type for unary '-': string.")
+                return -right
+            elif op_type == TokenType.BANG:
+                return 0
+
+        elif isinstance(expr, Binary):
+            left = self._evaluate(expr.left)
+            right = self._evaluate(expr.right)
+            op_type = expr.operator.type
+
+            # Arithmetic Operators
+            if op_type in (TokenType.PLUS, TokenType.MINUS, TokenType.ASTRIX, TokenType.SLASH):
+                if op_type == TokenType.PLUS:
+                    if type(left) != type(right):
+                        raise TypeError(f"Cannot add mismatched types: {type(left).__name__} and {type(right).__name__}")
+                    return left + right
+                
+                # Math type validation (Strings not allowed for -, *, /)
+                if isinstance(left, str) or isinstance(right, str):
+                    raise TypeError(f"Unsupported operand type(s) for '{expr.operator.lexeme}': strings not supported.")
+                
+                if op_type == TokenType.MINUS: return left - right
+                if op_type == TokenType.ASTRIX:  return left * right
+                if op_type == TokenType.SLASH:
+                    if right == 0:
+                        raise ZeroDivisionError("Division by zero.")
+                    return left / right
         
+
+            # Comparison Operators
+            if op_type in (TokenType.GREATER, TokenType.GREATER_EQUAL, TokenType.LESS, TokenType.LESS_EQUAL):
+                if type(left) != type(right) and not (isinstance(left, (int, float)) and isinstance(right, (int, float))):
+                    raise TypeError(f"Cannot compare mismatched types: {type(left).__name__} and {type(right).__name__}")
+                
+                if op_type == TokenType.GREATER:
+                    if left > right:
+                        return 1
+                    else:
+                        return 0
+                if op_type == TokenType.GREATER_EQUAL:
+                    if left >= right:
+                        return 1
+                    else:
+                        return 0
+                if op_type == TokenType.LESS:
+                    if left < right:
+                        return 1
+                    else:
+                        return 0
+                if op_type == TokenType.LESS_EQUAL:
+                    if left <= right:
+                        return 1
+                    else:
+                        return 0
+
+            # Equality Operators
+            if op_type == TokenType.EQUAL_EQUAL:
+                if left == right:
+                    return 1
+                else:
+                    return 0
+            if op_type == TokenType.BANG_EQUAL:
+                if left != right:
+                    return 1
+                else:
+                    return 0
+        elif isinstance(expr, PrintNode):
+                    value = self._evaluate(expr.expression)
+                    # Format booleans cleanly matching your print preferences
+                    output = str(value).lower() if isinstance(value, bool) else str(value)
+                    print(output)
+                    return None
+
+        raise NotImplementedError(f"Unknown evaluation sequence path for node type: {type(expr)}")
+
 class AstPrinter:
     
     def print(self, expr: Expr) -> str:
@@ -431,6 +555,16 @@ class AstPrinter:
         if expr.value is None:
             return "nil"
         return str(expr.value)
+    
+    def visit_print_expr(self, expr: PrintNode)-> str:
+        value = expr.expression.accept(self)
+        # Explicitly check for internal evaluation state
+        if value is None:
+            print("nil")
+        else:
+            print(str(value).lower() if isinstance(value, bool) else value)
+        return None
+        
 
 
  
@@ -454,16 +588,8 @@ class Interpreter:
     def run_file(self, path: str):
         try:
             with open(path, "r", encoding="utf-8") as file:
-                #self.run(file.read())
-                for line_num, line in enumerate(file, start=1):
-                    cleaned_line = line.strip()
-                    
-                    # Skip empty lines or comment lines
-                    if not cleaned_line:
-                        continue
-                    self.run(cleaned_line)
-            if self.had_error:
-                sys.exit(1)
+                self.run(file.read())
+                
         except FileNotFoundError:
             print(f"Error: file '{path}' not found", file=sys.stderr)
             sys.exit(1)
@@ -478,7 +604,7 @@ class Interpreter:
             except (KeyboardInterrupt, EOFError):
                 break
 
-    def run(self, source: str):
+    def run(self, source: str,):
         scanner = Scanner(source)
         tokens, error_occurred = scanner.scan_tokens()
 
@@ -486,21 +612,53 @@ class Interpreter:
             self.had_error = True
             return
 
-        parser=Parser(tokens)
-        ast_tree, error_parser = parser.parse()
-        if error_parser:
-            self.had_error = True
-            return
+        statements_tokens = []
+        current_statement = []
+    
+        for token in tokens:
+            if token.type == TokenType.EOF:
+                if current_statement:
+                    current_statement.append(Token(TokenType.EOF, "", None, token.line))
+                    statements_tokens.append(current_statement)
+                break
+            current_statement.append(token)
+            if token.type == TokenType.SEMICOLON:
+                # Anchor synthetic EOF to the exact final line of this statement
+                current_statement.append(Token(TokenType.EOF, "", None, token.line))
+                statements_tokens.append(current_statement)
+                current_statement = []
+
+
+        #parser=Parser(tokens)
+        #ast_tree, error_parser = parser.parse()
+        #if error_parser:
+        #    self.had_error = True
+        #    return
+
+        evaluator=Evaluator()
+
+        for stmt_tokens in statements_tokens:
+            parser = Parser(stmt_tokens)
+            ast_tree, parse_error = parser.parse()
+
+            if not parse_error and ast_tree is not None:
+                # Uncomment below to inspect real-time AST structures:
+                # print(f"AST Layout Structure: {printer.print(ast_structure)}")
+                evaluator.evaluate(ast_tree)
 
         #for token in tokens:
         #    print(token)
         
 
-        if isinstance(ast_tree, Expr):
-            result_string = self.printer.print(ast_tree)
-            print(f"Structure: {result_string}")
-        else:
-            print("Error: Evaluated object is not a structural subclass of Expr.")
+        #if isinstance(ast_tree, Expr):
+        #    result_string = self.printer.print(ast_tree)
+        #    print(f"Structure: {result_string}")
+        #else:
+        #    print("Error: Evaluated object is not a structural subclass of Expr.")
+
+        #value = evaluator.evaluate(ast_tree)
+        #if value is not None and not isinstance(ast_tree, PrintNode):
+        #    print(f"Result => {str(value).lower() if isinstance(value, bool) else value}")
 
 
 
@@ -515,4 +673,11 @@ if __name__ == "__main__":
         mon.run_file(sys.argv[1])
     elif len(sys.argv)==1:
         mon.run_prompt()
-    
+    #conor
+    #3 15 14 15 18
+    #buchkows
+    #2 20 3 8 11 15 23 19
+
+#    * + / == 5 3 !3 4
+
+#3 * 15 + !14 / (1.5 == 18)
